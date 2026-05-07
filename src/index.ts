@@ -29,7 +29,8 @@ import { dirname, join } from "node:path";
 import { PowerMemClient, type PowerMemSearchResult } from "./client.js";
 import { PowerMemV2Client } from "./client-v2.js";
 import { PowerMemCLIClient } from "./client-cli.js";
-import type { DualWriteClient } from "./dual-write-client.js";
+import { DualWriteClient } from "./dual-write-client.js";
+import { LocalSqliteStore } from "./local-sqlite.js";
 import { createLocalEmbeddingFactory } from "./local-embedding.js";
 import { callLlm } from "./llm.js";
 import { WalSession, walCapture as walCaptureCore } from "./wal.js";
@@ -287,17 +288,12 @@ const memoryPlugin = {
       agentId: cfg.localAgentId ?? identity.agentId,
     });
 
-    /** Dual-write SQLite + sqlite-vec load only when HTTP + dualWrite (avoids native better-sqlite3 at startup otherwise). */
     const needsDualWriteSqlite = cfg.dualWrite === true && cfg.mode === "http";
 
-    let DualWriteClientCtor: typeof import("./dual-write-client.js").DualWriteClient | undefined;
-    let localStore: InstanceType<typeof import("./local-sqlite.js").LocalSqliteStore> | null = null;
+    let localStore: LocalSqliteStore | null = null;
 
     if (needsDualWriteSqlite) {
-      const sqliteMod = await import("./local-sqlite.js");
-      const dualMod = await import("./dual-write-client.js");
-      DualWriteClientCtor = dualMod.DualWriteClient;
-      localStore = new sqliteMod.LocalSqliteStore(resolveLocalDbPath(cfg, stateDir), {
+      localStore = new LocalSqliteStore(resolveLocalDbPath(cfg, stateDir), {
         logger: api.logger,
         vector: {
           enabled: cfg.localVector?.enabled ?? true,
@@ -341,10 +337,10 @@ const memoryPlugin = {
       }
 
       const httpClient = buildHttpClient(identity);
-      if (needsDualWriteSqlite && localStore && DualWriteClientCtor) {
+      if (needsDualWriteSqlite && localStore) {
         const localIdentity = resolveLocalIdentity(identity);
         const localEmbedding = getLocalEmbeddingFactory(ctxAgentId);
-        return new DualWriteClientCtor(httpClient, localStore, {
+        return new DualWriteClient(httpClient, localStore, {
           localUserId: localIdentity.userId,
           localAgentId: localIdentity.agentId,
           priority: cfg.dualWritePriority ?? "remote",
@@ -514,7 +510,7 @@ const memoryPlugin = {
     const modeLabel =
       cfg.mode === "cli"
         ? `cli (${resolvedPmem})`
-        : `${cfg.baseUrl}${cfg.httpApiVersion === "v2" ? " (v2)" : ""}${needsDualWriteSqlite ? " + sqlite" : ""}`;
+        : `${cfg.baseUrl}${cfg.httpApiVersion === "v2" ? " (v2)" : ""}${localStore ? " + sqlite" : ""}`;
 
     api.logger.info(
       `memory-powermem: plugin registered (mode: ${cfg.mode}, ${modeLabel}, user: ${userId}, agent: ${agentId})`,

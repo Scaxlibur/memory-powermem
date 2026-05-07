@@ -4,7 +4,7 @@
  */
 
 import Database from "better-sqlite3";
-import sqliteVec from "sqlite-vec";
+import { load as loadSqliteVec } from "sqlite-vec";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 
@@ -251,7 +251,7 @@ export class LocalSqliteStore {
       if (this.vector.extensionPath) {
         this.db.loadExtension(this.vector.extensionPath);
       } else {
-        sqliteVec.load(this.db);
+        loadSqliteVec(this.db);
       }
       this.vector.available = true;
     } catch (err) {
@@ -736,3 +736,5 @@ export class LocalSqliteStore {
     }
   }
 }
+
+export default LocalSqliteStore;
