@@ -300,5 +300,19 @@
       "useOpenClawModel": { "type": "boolean" }
     },
     "required": []
+  },
+  "contracts": {
+    "tools": [
+      "memory_recall",
+      "memory_store",
+      "memory_forget",
+      "experience_store",
+      "experience_recall",
+      "agent_memory_add",
+      "agent_memory_list",
+      "agent_memory_share",
+      "agent_memory_shared",
+      "cross_scope_share"
+    ]
   }
 }
